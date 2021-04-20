@@ -1,13 +1,7 @@
 package com.gitee.easyopen.spring.boot.autoconfigure;
 
-import com.gitee.easyopen.ApiConfig;
-import com.gitee.easyopen.config.ConfigClient;
-import com.gitee.easyopen.interceptor.ApiInterceptor;
-import com.gitee.easyopen.limit.ApiLimitConfigLocalManager;
-import com.gitee.easyopen.limit.ApiLimitManager;
-import com.gitee.easyopen.support.ApiController;
-import com.gitee.easyopen.util.CopyUtil;
-import org.springframework.beans.BeanUtils;
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -22,7 +16,17 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
 
-import java.util.List;
+import com.gitee.easyopen.ApiConfig;
+import com.gitee.easyopen.ApiContext;
+import com.gitee.easyopen.RedisAppSecretManager;
+import com.gitee.easyopen.config.ConfigClient;
+import com.gitee.easyopen.interceptor.ApiInterceptor;
+import com.gitee.easyopen.limit.ApiLimitConfigLocalManager;
+import com.gitee.easyopen.limit.ApiLimitManager;
+import com.gitee.easyopen.session.RedisSessionManager;
+import com.gitee.easyopen.support.ApiController;
+import com.gitee.easyopen.util.CopyUtil;
+import com.gitee.easyopen.util.RedisCache;
 
 
 /**
@@ -94,9 +98,23 @@ public class EasyopenAutoConfiguration {
             propertiesCopyAware.copy(properties, apiConfig);
             this.initInterceptor(properties, apiConfig);
             this.initOpenClient(properties, apiConfig);
+            this.initRedisCache(properties, apiConfig);
         }
 
-        private void initInterceptor(EasyopenProperties properties, ApiConfig apiConfig) {
+        private void initRedisCache(EasyopenProperties properties, ApiConfig apiConfig) {
+        	RedisTemplate redisTemplate = (RedisTemplate)getApplicationContext().getBean("redisTemplate");
+            if (redisTemplate == null) {
+                throw new NullPointerException("redisTemplate不能为null，是否缺少spring-boot-starter-data-redis依赖");
+            }
+            RedisCache redisCahe = new RedisCache(redisTemplate);
+            
+            RedisAppSecretManager redisAppSecretManager = new RedisAppSecretManager();
+            redisAppSecretManager.setRedisCache(redisCahe);
+            
+            ApiContext.getApiConfig().setAppSecretManager(redisAppSecretManager);
+		}
+
+		private void initInterceptor(EasyopenProperties properties, ApiConfig apiConfig) {
             if (!CollectionUtils.isEmpty(properties.getInterceptors())) {
                 List<String> interceptors = properties.getInterceptors();
                 ApiInterceptor[] apiInterceptor = new ApiInterceptor[interceptors.size()];
